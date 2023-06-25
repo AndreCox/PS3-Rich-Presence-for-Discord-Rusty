@@ -11,7 +11,8 @@ local-ip-address = "0.5.3"
 default-net = "0.15.0"
 ipnet = "2.7.2"
 pbr = "1.1.1"
-reqwest = {version="0.11.18", features=["blocking"]}
+reqwest = {version="0.11.18", features=["blocking", "multipart"]}
 select = "0.6.0"
 discord-rich-presence = "0.2.3"
 regex = "1.8.4"
+serde_json = "1.0.99"

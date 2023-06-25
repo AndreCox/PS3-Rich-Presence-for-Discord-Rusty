@@ -3,6 +3,8 @@ use std::time::SystemTime;
 use regex::Regex;
 use select::{document::Document, node::Node, predicate::Name};
 
+use crate::{artifact_upload::ArtifactUploader, local_images::LocalImages};
+
 pub struct Ps3Scraper {
     pub ip: String,
     html: Document,
@@ -11,11 +13,15 @@ pub struct Ps3Scraper {
     pub name: String,
     pub start_time: i64,
     pub image: String,
+    local_images: LocalImages,
+    image_uploader: ArtifactUploader,
 }
 
 impl Ps3Scraper {
-    pub fn new(ip: String) -> Self {
+    pub fn new(ip: String, local_images: LocalImages, image_uploader: ArtifactUploader) -> Self {
         Self {
+            image_uploader: image_uploader,
+            local_images: local_images,
             ip,
             html: Document::from(""),
             temp: [0, 0],
@@ -220,6 +226,22 @@ impl Ps3Scraper {
         // we need to get the region from the titleID
         // this is the third character in the titleID string
         // read more about it here https://www.psdevwiki.com/ps3/TITLE_ID
+
+        // first we'll do a quick lookup to see if we have a local copy of the image matching the titleID
+        // if we do then we want to prioritize that over the gametdb.com image
+        let local_image = self.local_images.get_image(&self.title_id);
+        // if we have a local image, then we can use that
+        if local_image.is_some() {
+            // now we can't directly use the image we need to upload it to discord first
+            let result = self.image_uploader.upload_artifact(local_image.unwrap());
+            if result.is_ok() {
+                self.image = result.unwrap();
+                return;
+            } else {
+                println!("Failed to upload local image: {}", result.unwrap_err());
+                println!("Using gametdb.com image")
+            }
+        }
 
         let region: char = self.title_id.chars().nth(2).unwrap();
 

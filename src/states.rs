@@ -49,14 +49,20 @@ impl StateMachine {
     }
 
     pub fn update(&mut self) {
-        if self.connected_discord == false && self.found_webman == true {
+        if self.connected_discord == false && self.found_webman == false {
+            if self.discord_rich_presence.connect() {
+                println!("Connected to Discord");
+                self.connected_discord = true;
+                return;
+            }
+        } else if self.connected_discord == false && self.found_webman == true {
             if self.discord_rich_presence.connect() {
                 println!("Connected to Discord");
                 self.connected_discord = true;
                 return;
             }
             self.idle();
-        } else if self.connected_discord == false && self.found_webman == false {
+        } else if self.connected_discord == true && self.found_webman == false {
             self.discord_rich_presence.disconnect();
             println!("Searching for webMAN");
             if self.ps3_scraper.ip == "".to_string() {

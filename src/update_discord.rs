@@ -52,6 +52,6 @@ impl DiscordRichPresence {
     pub fn disconnect(&mut self) {
         if self.client.close().is_err() {
             println!("Failed to disconnect from Discord IPC");
-        };
+        }
     }
 }

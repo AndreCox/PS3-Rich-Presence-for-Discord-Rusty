@@ -8,32 +8,50 @@ use std::thread;
 pub fn get_webman(hosts: Vec<HostInfo>) -> String {
     let (tx, rx) = mpsc::channel();
 
+    let hosts_len = hosts.len();
     for host in hosts {
         let tx = tx.clone();
-        thread::spawn(move || tx.send(webman_discovery(host)));
+        let handle = thread::spawn(move || tx.send(webman_discovery(host)));
     }
 
     // now we wait until we get a response from one of the threads that isn't an empty string
     let mut webman_ip = "".to_string();
-
+    let mut returned_threads = 0;
     while webman_ip == "".to_string() {
         webman_ip = rx.recv().unwrap();
+
+        // if we've gone through all the hosts and still haven't found webman, return an empty string
+        returned_threads += 1;
+        if returned_threads == hosts_len {
+            return "".to_string();
+        }
     }
 
     return webman_ip;
 }
 
 fn webman_discovery(ip: HostInfo) -> String {
-    let resp = reqwest::blocking::get(&format!("http://{}", ip.ip_addr));
+    // create a custom reqwest client with a timeout of 5 seconds
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .unwrap();
 
-    let html = match resp {
+    let resp = client.get(&format!("http://{}", ip.ip_addr)).send();
+
+    let html_result = match resp {
         Ok(html) => html.text(),
+        Err(_) => return "".to_string(),
+    };
+
+    let html = match html_result {
+        Ok(html) => html,
         Err(_) => return "".to_string(),
     };
 
     let mut titles: Vec<String> = Vec::new();
 
-    Document::from(html.unwrap().as_str())
+    Document::from(html.as_str())
         .find(Name("title"))
         .for_each(|n| titles.push(n.text()));
 
