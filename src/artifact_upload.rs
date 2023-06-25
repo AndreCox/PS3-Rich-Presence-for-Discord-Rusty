@@ -54,7 +54,7 @@ impl ArtifactUploader {
         // return the url of the artifact we just uploaded this is stored in attachments[0].url
         self.artifact_url = json["attachments"][0]["url"].to_string();
 
-        Ok(json["attachments"][0]["url"].to_string())
+        Ok(json["attachments"][0]["proxy_url"].to_string())
     }
 
     fn remove_artifact(&mut self) {

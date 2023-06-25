@@ -12,28 +12,31 @@
 // 2. Data Handling - the program is connected to Discord and has found a PS3 running webMAN, we fetch data from the PS3 and send it to Discord
 // 3. Sleep - the program is connected to Discord and has found a PS3 running webMAN, we sleep to save resources and wait for the next data fetch
 
-use crate::{ps3_scraper, update_discord, webman_discovery};
+use crate::{config, ps3_scraper, update_discord, webman_discovery};
 
-pub struct StateMachine {
+pub struct StateMachine<'a> {
     connected_discord: bool,
     found_webman: bool,
-    idle_time: u64,  // idle time when we can't find a PS3 running webMAN
-    sleep_time: u64, // sleep time between data fetches | min: 15
+    idle_time: &'a u64,    // idle time when we can't find a PS3 running webMAN
+    refresh_time: &'a u64, // time between data fetches | min: 15
 
     // our objects that we use to do stuff
-    ps3_scraper: ps3_scraper::Ps3Scraper,
-    discord_rich_presence: update_discord::DiscordRichPresence,
+    ps3_scraper: ps3_scraper::Ps3Scraper<'a>,
+    discord_rich_presence: update_discord::DiscordRichPresence<'a>,
+
+    config: &'a config::Config,
 }
 
-impl StateMachine {
+impl<'a> StateMachine<'a> {
     pub fn new(
-        idle_time: u64,
-        sleep_time: u64,
-        ps3_scraper: ps3_scraper::Ps3Scraper,
-        discord_rich_presence: update_discord::DiscordRichPresence,
+        idle_time: &'a u64,
+        refresh_time: &'a u64,
+        ps3_scraper: ps3_scraper::Ps3Scraper<'a>,
+        discord_rich_presence: update_discord::DiscordRichPresence<'a>,
+        config: &'a config::Config,
     ) -> Self {
         // check that idle_time is at least 15 seconds
-        if sleep_time < 15 {
+        if refresh_time < &15 {
             println!("sleepTime must be at least 15 seconds");
             std::process::exit(2);
         }
@@ -42,9 +45,10 @@ impl StateMachine {
             connected_discord: false,
             found_webman: false,
             idle_time,
-            sleep_time: idle_time,
-            ps3_scraper: ps3_scraper,
-            discord_rich_presence: discord_rich_presence,
+            refresh_time,
+            ps3_scraper,
+            discord_rich_presence,
+            config,
         }
     }
 
@@ -55,6 +59,7 @@ impl StateMachine {
                 self.connected_discord = true;
                 return;
             }
+            self.idle();
         } else if self.connected_discord == false && self.found_webman == true {
             if self.discord_rich_presence.connect() {
                 println!("Connected to Discord");
@@ -93,12 +98,12 @@ impl StateMachine {
 
     fn idle(&mut self) {
         println!("Idle");
-        std::thread::sleep(std::time::Duration::from_secs(self.idle_time));
+        std::thread::sleep(std::time::Duration::from_secs(*self.idle_time));
     }
 
     fn sleep(&mut self) {
         println!("Sleep");
-        std::thread::sleep(std::time::Duration::from_secs(self.sleep_time));
+        std::thread::sleep(std::time::Duration::from_secs(*self.refresh_time));
     }
 
     fn data_handling(&mut self) {

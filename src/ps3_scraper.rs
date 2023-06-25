@@ -3,9 +3,9 @@ use std::time::SystemTime;
 use regex::Regex;
 use select::{document::Document, node::Node, predicate::Name};
 
-use crate::{artifact_upload::ArtifactUploader, local_images::LocalImages};
+use crate::{artifact_upload::ArtifactUploader, config, local_images::LocalImages};
 
-pub struct Ps3Scraper {
+pub struct Ps3Scraper<'a> {
     pub ip: String,
     html: Document,
     pub temp: [u32; 2],
@@ -15,14 +15,20 @@ pub struct Ps3Scraper {
     pub image: String,
     local_images: LocalImages,
     image_uploader: ArtifactUploader,
+    config: &'a config::Config,
 }
 
-impl Ps3Scraper {
-    pub fn new(ip: String, local_images: LocalImages, image_uploader: ArtifactUploader) -> Self {
+impl<'a> Ps3Scraper<'a> {
+    pub fn new(
+        ip: &String,
+        local_images: LocalImages,
+        image_uploader: ArtifactUploader,
+        config: &'a config::Config,
+    ) -> Self {
         Self {
-            image_uploader: image_uploader,
-            local_images: local_images,
-            ip,
+            image_uploader,
+            local_images,
+            ip: ip.clone(),
             html: Document::from(""),
             temp: [0, 0],
             title_id: "".to_string(),
@@ -32,6 +38,7 @@ impl Ps3Scraper {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_secs() as i64,
+            config,
         }
     }
 
@@ -51,8 +58,10 @@ impl Ps3Scraper {
         };
         self.html = Document::from(html.as_str());
 
-        if self.get_thermals().is_err() {
-            return Err("Failed to get thermals".into());
+        if self.config.show_temp {
+            if self.get_thermals().is_err() {
+                return Err("Failed to get thermals".into());
+            }
         }
         if self.decide_game_type().is_err() {
             return Err("Failed to decide game type".into());
@@ -236,6 +245,7 @@ impl Ps3Scraper {
             let result = self.image_uploader.upload_artifact(local_image.unwrap());
             if result.is_ok() {
                 self.image = result.unwrap();
+                println!("Image Url: {}", self.image);
                 return;
             } else {
                 println!("Failed to upload local image: {}", result.unwrap_err());
